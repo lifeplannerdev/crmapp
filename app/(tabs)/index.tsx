@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet } from 'react-native';
-import { useAuthStore } from '../store/authStore';
+import { useAuthStore } from '../../store/authStore';
 
 export default function Dashboard() {
   const { user } = useAuthStore();
