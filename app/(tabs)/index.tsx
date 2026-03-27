@@ -12,24 +12,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/authStore';
 import api from '../../services/api';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Types ─────────────────────────────────────────────────────────────────
 interface Stats {
   total_leads: number;
   active_staff: number;
   total_students: number;
-  leads_change: number;
-  staff_change: number;
-  students_change: number;
 }
 
 interface Activity {
   id?: number;
   activity_type?: string;
-  title?: string;
-  user_name?: string;
   description?: string;
+  user_name?: string;
   created_at?: string;
-  timestamp?: string;
 }
 
 interface Task {
@@ -43,7 +38,7 @@ interface Task {
   status?: string;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────────────────────
 const getGreeting = () => {
   const h = new Date().getHours();
   if (h < 12) return 'Good morning';
@@ -65,7 +60,8 @@ const formatTimeAgo = (dateStr?: string) => {
 const formatTaskTime = (dateStr?: string) => {
   if (!dateStr) return 'No due date';
   return new Date(dateStr).toLocaleDateString('en-US', {
-    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+    month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit',
   });
 };
 
@@ -79,15 +75,40 @@ const getDaysUntil = (dateStr?: string) => {
   return Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000);
 };
 
-// ─── Priority Badge ────────────────────────────────────────────────────────────
+const toArray = (d: any): any[] =>
+  Array.isArray(d?.data) ? d.data
+  : Array.isArray(d?.data?.results) ? d.data.results
+  : [];
+
+// ─── Role badge colours — covers all your ROLE_CHOICES ──────────────────────
+const ROLE_BADGE: Record<string, { bg: string; text: string }> = {
+  ADMIN:         { bg: 'bg-indigo-100',  text: 'text-indigo-700' },
+  CEO:           { bg: 'bg-gray-800',    text: 'text-white' },
+  OPS:           { bg: 'bg-blue-100',    text: 'text-blue-700' },
+  ADM_MANAGER:   { bg: 'bg-purple-100',  text: 'text-purple-700' },
+  ADM_EXEC:      { bg: 'bg-violet-100',  text: 'text-violet-700' },
+  PROCESSING:    { bg: 'bg-cyan-100',    text: 'text-cyan-700' },
+  MEDIA:         { bg: 'bg-pink-100',    text: 'text-pink-700' },
+  TRAINER:       { bg: 'bg-yellow-100',  text: 'text-yellow-700' },
+  BUSINESS_HEAD: { bg: 'bg-emerald-100', text: 'text-emerald-700' },
+  BDM:           { bg: 'bg-teal-100',    text: 'text-teal-700' },
+  CM:            { bg: 'bg-orange-100',  text: 'text-orange-700' },
+  HR:            { bg: 'bg-rose-100',    text: 'text-rose-700' },
+  FOE:           { bg: 'bg-lime-100',    text: 'text-lime-700' },
+  ACCOUNTS:      { bg: 'bg-amber-100',   text: 'text-amber-700' },
+  DOCUMENTATION: { bg: 'bg-sky-100',     text: 'text-sky-700' },
+};
+
+// ─── Components ──────────────────────────────────────────────────────────────
+
 function PriorityBadge({ priority }: { priority?: string }) {
   const p = priority?.toUpperCase();
-  const styles: Record<string, { bg: string; text: string }> = {
+  const map: Record<string, { bg: string; text: string }> = {
     HIGH:   { bg: 'bg-red-100',    text: 'text-red-700' },
     MEDIUM: { bg: 'bg-orange-100', text: 'text-orange-700' },
     LOW:    { bg: 'bg-green-100',  text: 'text-green-700' },
   };
-  const s = styles[p ?? ''] ?? { bg: 'bg-gray-100', text: 'text-gray-600' };
+  const s = map[p ?? ''] ?? { bg: 'bg-gray-100', text: 'text-gray-500' };
   return (
     <View className={`px-2 py-0.5 rounded-full ${s.bg}`}>
       <Text className={`text-xs font-bold ${s.text}`}>{p}</Text>
@@ -95,12 +116,11 @@ function PriorityBadge({ priority }: { priority?: string }) {
   );
 }
 
-// ─── Metric Card ──────────────────────────────────────────────────────────────
 function MetricCard({
-  title, value, icon, bgColor, iconColor, change,
+  title, value, icon, bgColor, iconColor,
 }: {
-  title: string; value: string | number; icon: any;
-  bgColor: string; iconColor: string; change?: number;
+  title: string; value: string | number;
+  icon: any; bgColor: string; iconColor: string;
 }) {
   return (
     <View className="flex-1 bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
@@ -109,29 +129,16 @@ function MetricCard({
       </View>
       <Text className="text-2xl font-extrabold text-gray-900">{value}</Text>
       <Text className="text-xs text-gray-500 mt-1 font-medium">{title}</Text>
-      {change !== undefined && (
-        <View className="flex-row items-center mt-2">
-          <Ionicons
-            name={change >= 0 ? 'trending-up' : 'trending-down'}
-            size={12}
-            color={change >= 0 ? '#10B981' : '#EF4444'}
-          />
-          <Text className={`text-xs ml-1 font-semibold ${change >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-            {change >= 0 ? '+' : ''}{change}%
-          </Text>
-        </View>
-      )}
     </View>
   );
 }
 
-// ─── Section Header ───────────────────────────────────────────────────────────
 function SectionHeader({ title, onPress }: { title: string; onPress?: () => void }) {
   return (
     <View className="flex-row items-center justify-between mb-3">
       <Text className="text-base font-bold text-gray-900">{title}</Text>
       {onPress && (
-        <TouchableOpacity onPress={onPress}>
+        <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
           <Text className="text-xs text-indigo-600 font-semibold">View all</Text>
         </TouchableOpacity>
       )}
@@ -139,50 +146,65 @@ function SectionHeader({ title, onPress }: { title: string; onPress?: () => void
   );
 }
 
-// ─── Activity Item ────────────────────────────────────────────────────────────
 function ActivityItem({ activity }: { activity: Activity }) {
+  // Map your actual ActivityLog ACTIVITY_TYPES to icons/colours
+  const typeStyle: Record<string, { bg: string; icon: string; color: string }> = {
+    'Lead Created':     { bg: 'bg-blue-100',   icon: 'person-add-outline',       color: '#3B82F6' },
+    'Student Enrolled': { bg: 'bg-purple-100',  icon: 'school-outline',           color: '#8B5CF6' },
+    'Task Completed':   { bg: 'bg-green-100',   icon: 'checkmark-circle-outline', color: '#10B981' },
+  };
+  const s = typeStyle[activity.activity_type ?? '']
+    ?? { bg: 'bg-indigo-100', icon: 'flash-outline', color: '#6366F1' };
+
   return (
     <View className="flex-row items-start gap-3 py-3 border-b border-gray-50">
-      <View className="w-8 h-8 rounded-full bg-blue-100 items-center justify-center mt-0.5">
-        <Ionicons name="calendar-outline" size={15} color="#4F46E5" />
+      <View className={`w-9 h-9 rounded-full ${s.bg} items-center justify-center mt-0.5`}>
+        <Ionicons name={s.icon as any} size={16} color={s.color} />
       </View>
       <View className="flex-1">
         <Text className="text-sm font-semibold text-gray-800" numberOfLines={1}>
-          {activity.activity_type || activity.title || 'Activity'}
+          {activity.activity_type ?? 'Activity'}
         </Text>
-        <Text className="text-xs text-gray-500 mt-0.5" numberOfLines={1}>
-          {activity.user_name || activity.description || '—'}
+        <Text className="text-xs text-gray-500 mt-0.5" numberOfLines={2}>
+          {activity.description ?? '—'}
         </Text>
+        {activity.user_name ? (
+          <Text className="text-xs text-indigo-500 mt-0.5 font-medium">
+            by {activity.user_name}
+          </Text>
+        ) : null}
       </View>
-      <Text className="text-xs text-gray-400 font-medium mt-0.5">
-        {formatTimeAgo(activity.created_at || activity.timestamp)}
+      <Text className="text-xs text-gray-400 font-medium mt-0.5 shrink-0">
+        {formatTimeAgo(activity.created_at)}
       </Text>
     </View>
   );
 }
 
-// ─── Task Item ────────────────────────────────────────────────────────────────
 function TaskItem({ task, accent = 'indigo' }: { task: Task; accent?: 'indigo' | 'purple' }) {
   const due = task.due_date || task.deadline;
   const overdue = isOverdue(due);
   const daysUntil = getDaysUntil(due);
   const soon = daysUntil !== null && daysUntil <= 3 && daysUntil >= 0;
 
-  const borderColor = overdue
-    ? 'border-red-200 bg-red-50'
-    : accent === 'purple'
-    ? 'border-gray-100 bg-white'
-    : 'border-gray-100 bg-white';
-
   return (
-    <View className={`flex-row items-center gap-3 p-3 rounded-xl border mb-2 ${borderColor}`}>
-      <View className={`w-5 h-5 rounded-md border-2 items-center justify-center ${
-        overdue ? 'border-red-400' : accent === 'purple' ? 'border-purple-400' : 'border-indigo-400'
-      }`}>
+    <View
+      className={`flex-row items-center gap-3 p-3 rounded-xl border mb-2 ${
+        overdue ? 'border-red-200 bg-red-50' : 'border-gray-100 bg-white'
+      }`}
+    >
+      <View
+        className={`w-5 h-5 rounded-md border-2 items-center justify-center ${
+          overdue ? 'border-red-400'
+          : accent === 'purple' ? 'border-purple-400'
+          : 'border-indigo-400'
+        }`}
+      >
         {(task.completed || task.status === 'COMPLETED') && (
-          <Ionicons name="checkmark" size={12} color={overdue ? '#EF4444' : '#4F46E5'} />
+          <Ionicons name="checkmark" size={12} color="#4F46E5" />
         )}
       </View>
+
       <View className="flex-1">
         <Text
           className={`text-sm font-semibold ${overdue ? 'text-red-800' : 'text-gray-800'}`}
@@ -191,16 +213,13 @@ function TaskItem({ task, accent = 'indigo' }: { task: Task; accent?: 'indigo' |
           {task.title || task.name || 'Untitled Task'}
         </Text>
         <View className="flex-row items-center mt-1 gap-1">
-          <Ionicons
-            name="time-outline"
-            size={11}
-            color={overdue ? '#EF4444' : '#9CA3AF'}
-          />
+          <Ionicons name="time-outline" size={11} color={overdue ? '#EF4444' : '#9CA3AF'} />
           <Text className={`text-xs ${overdue ? 'text-red-600 font-medium' : 'text-gray-400'}`}>
             {formatTaskTime(due)}
           </Text>
         </View>
       </View>
+
       <View className="items-end gap-1">
         {task.priority && <PriorityBadge priority={task.priority} />}
         {overdue && (
@@ -218,7 +237,6 @@ function TaskItem({ task, accent = 'indigo' }: { task: Task; accent?: 'indigo' |
   );
 }
 
-// ─── Empty State ──────────────────────────────────────────────────────────────
 function EmptyState({ icon, title, subtitle }: { icon: any; title: string; subtitle: string }) {
   return (
     <View className="items-center py-8">
@@ -226,64 +244,58 @@ function EmptyState({ icon, title, subtitle }: { icon: any; title: string; subti
         <Ionicons name={icon} size={22} color="#9CA3AF" />
       </View>
       <Text className="text-sm font-semibold text-gray-500">{title}</Text>
-      <Text className="text-xs text-gray-400 mt-1 text-center">{subtitle}</Text>
+      <Text className="text-xs text-gray-400 mt-1 text-center px-4">{subtitle}</Text>
     </View>
   );
 }
 
-// ─── Main Dashboard ───────────────────────────────────────────────────────────
+// ─── Main Screen ─────────────────────────────────────────────────────────────
 export default function Dashboard() {
   const { user } = useAuthStore();
 
-  const isAdmin = user?.role?.toUpperCase() === 'ADMIN';
+  const isAdmin  = user?.role?.toUpperCase() === 'ADMIN';
   const userName = user?.first_name || user?.username || 'User';
-  const userRole = user?.role || 'STAFF';
+  const userRole = user?.role?.toUpperCase() ?? 'STAFF';
+  const badge    = ROLE_BADGE[userRole] ?? { bg: 'bg-gray-100', text: 'text-gray-600' };
 
-  const [stats, setStats] = useState<Stats>({
-    total_leads: 0, active_staff: 0, total_students: 0,
-    leads_change: 0, staff_change: 0, students_change: 0,
-  });
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [upcomingTasks, setUpcomingTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [stats, setStats]            = useState<Stats>({ total_leads: 0, active_staff: 0, total_students: 0 });
+  const [activities, setActivities]  = useState<Activity[]>([]);
+  const [tasks, setTasks]            = useState<Task[]>([]);
+  const [upcomingTasks, setUpcoming] = useState<Task[]>([]);
+  const [loading, setLoading]        = useState(true);
+  const [refreshing, setRefreshing]  = useState(false);
+  const [error, setError]            = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     setError(null);
     try {
-      const requests: Promise<any>[] = [
-        api.get('/activities/').catch(() => ({ data: [] })),
-        api.get('/tasks/pending/').catch(() => ({ data: [] })),
-        api.get('/upcoming/').catch(() => ({ data: [] })),
-      ];
+      // Activities — confirmed endpoint: GET /api/activities/
+      const activitiesRes = await api.get('/activities/').catch(() => null);
+      if (activitiesRes) setActivities(toArray(activitiesRes));
+
+      // Stats — confirmed endpoint: GET /api/stats/ (ADMIN only)
       if (isAdmin) {
-        requests.push(api.get('/stats/').catch(() => ({ data: {} })));
+        const statsRes = await api.get('/stats/').catch(() => null);
+        if (statsRes?.data) {
+          setStats({
+            total_leads:    statsRes.data.total_leads    ?? 0,
+            active_staff:   statsRes.data.active_staff   ?? 0,
+            total_students: statsRes.data.total_students ?? 0,
+          });
+        }
       }
 
-      const results = await Promise.all(requests);
+      // Tasks — update these URLs once you share your tasks app urls.py
+      // Currently tries /tasks/pending/ and /tasks/upcoming/
+      const [pendingRes, upcomingRes] = await Promise.all([
+        api.get('/tasks/pending/').catch(() => null),
+        api.get('/tasks/upcoming/').catch(() => null),
+      ]);
+      if (pendingRes)  setTasks(toArray(pendingRes));
+      if (upcomingRes) setUpcoming(toArray(upcomingRes));
 
-      const toArray = (d: any) =>
-        Array.isArray(d?.data) ? d.data : d?.data?.results ?? [];
-
-      setActivities(toArray(results[0]));
-      setTasks(toArray(results[1]));
-      setUpcomingTasks(toArray(results[2]));
-
-      if (isAdmin && results[3]) {
-        const d = results[3].data ?? {};
-        setStats({
-          total_leads: d.total_leads ?? 0,
-          active_staff: d.active_staff ?? 0,
-          total_students: d.total_students ?? 0,
-          leads_change: d.leads_change ?? 0,
-          staff_change: d.staff_change ?? 0,
-          students_change: d.students_change ?? 0,
-        });
-      }
     } catch {
-      setError('Failed to load some dashboard data');
+      setError('Failed to load some data. Pull down to retry.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -291,21 +303,13 @@ export default function Dashboard() {
   }, [isAdmin]);
 
   useEffect(() => { loadData(); }, [loadData]);
-
   const onRefresh = () => { setRefreshing(true); loadData(); };
-
-  const roleBadgeColor: Record<string, { bg: string; text: string }> = {
-    ADMIN:   { bg: 'bg-indigo-100', text: 'text-indigo-700' },
-    MANAGER: { bg: 'bg-purple-100', text: 'text-purple-700' },
-    STAFF:   { bg: 'bg-green-100',  text: 'text-green-700' },
-  };
-  const badge = roleBadgeColor[userRole.toUpperCase()] ?? { bg: 'bg-gray-100', text: 'text-gray-600' };
 
   if (loading) {
     return (
       <View className="flex-1 bg-indigo-50 items-center justify-center">
         <ActivityIndicator size="large" color="#4F46E5" />
-        <Text className="mt-4 text-gray-500 font-medium">Loading dashboard…</Text>
+        <Text className="mt-4 text-gray-500 font-medium text-sm">Loading dashboard…</Text>
       </View>
     );
   }
@@ -321,21 +325,19 @@ export default function Dashboard() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4F46E5" />
         }
       >
-        {/* ── Header ── */}
+        {/* ── Header ───────────────────────────────────────────────────── */}
         <View className="bg-indigo-50 px-5 pt-14 pb-6">
-          <View className="flex-row items-center justify-between mb-2">
+          <View className="flex-row items-start justify-between">
             <View className="flex-1">
               <View className="flex-row items-center gap-2 flex-wrap">
                 <Text className="text-2xl font-extrabold text-indigo-600 tracking-tight">
                   {isAdmin ? 'Admin Dashboard' : 'Dashboard'}
                 </Text>
                 <View className={`px-2.5 py-1 rounded-full ${badge.bg}`}>
-                  <Text className={`text-xs font-bold ${badge.text}`}>
-                    {userRole.toUpperCase()}
-                  </Text>
+                  <Text className={`text-xs font-bold ${badge.text}`}>{userRole}</Text>
                 </View>
               </View>
-              <View className="flex-row items-center gap-1.5 mt-1">
+              <View className="flex-row items-center gap-1.5 mt-1.5">
                 <Ionicons name="sparkles" size={14} color="#EAB308" />
                 <Text className="text-sm text-gray-600">
                   {getGreeting()},{' '}
@@ -345,8 +347,7 @@ export default function Dashboard() {
             </View>
           </View>
 
-          {/* Date chip */}
-          <View className="flex-row items-center self-start gap-1.5 bg-white px-3 py-1.5 rounded-full border border-gray-200 shadow-sm mt-1">
+          <View className="flex-row items-center self-start gap-1.5 bg-white px-3 py-1.5 rounded-full border border-gray-200 shadow-sm mt-3">
             <Ionicons name="calendar-outline" size={13} color="#4F46E5" />
             <Text className="text-xs font-medium text-gray-700">
               {new Date().toLocaleDateString('en-US', {
@@ -356,9 +357,9 @@ export default function Dashboard() {
           </View>
         </View>
 
-        <View className="px-4 pt-5 pb-8">
+        <View className="px-4 pt-5 pb-10">
 
-          {/* ── Error ── */}
+          {/* ── Error ────────────────────────────────────────────────────── */}
           {error && (
             <View className="flex-row items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-5">
               <Ionicons name="alert-circle" size={17} color="#DC2626" />
@@ -366,9 +367,12 @@ export default function Dashboard() {
             </View>
           )}
 
-          {/* ── Admin Stats ── */}
+          {/* ── Admin Stats ──────────────────────────────────────────────── */}
           {isAdmin ? (
-            <>
+            <View className="mb-6">
+              <Text className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
+                Overview
+              </Text>
               <View className="flex-row gap-3 mb-3">
                 <MetricCard
                   title="Total Leads"
@@ -376,7 +380,6 @@ export default function Dashboard() {
                   icon="people-outline"
                   bgColor="bg-blue-100"
                   iconColor="#3B82F6"
-                  change={stats.leads_change}
                 />
                 <MetricCard
                   title="Active Staff"
@@ -384,49 +387,52 @@ export default function Dashboard() {
                   icon="person-add-outline"
                   bgColor="bg-emerald-100"
                   iconColor="#10B981"
-                  change={stats.staff_change}
                 />
               </View>
-              <View className="flex-row gap-3 mb-6">
+              <View className="flex-row gap-3">
                 <MetricCard
                   title="Total Students"
                   value={stats.total_students}
                   icon="school-outline"
                   bgColor="bg-purple-100"
                   iconColor="#8B5CF6"
-                  change={stats.students_change}
                 />
                 <View className="flex-1" />
               </View>
-            </>
+            </View>
           ) : (
-            /* ── User Quick Actions ── */
-            <View className="flex-row gap-3 mb-6">
-              <MetricCard
-                title="Today"
-                value={new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit' })}
-                icon="calendar-outline"
-                bgColor="bg-blue-100"
-                iconColor="#3B82F6"
-              />
-              <MetricCard
-                title="Pending Tasks"
-                value={tasks.length}
-                icon="checkbox-outline"
-                bgColor="bg-indigo-100"
-                iconColor="#6366F1"
-              />
-              <MetricCard
-                title="Upcoming"
-                value={upcomingTasks.length}
-                icon="time-outline"
-                bgColor="bg-orange-100"
-                iconColor="#F97316"
-              />
+            /* ── Non-admin quick summary ─────────────────────────────── */
+            <View className="mb-6">
+              <Text className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
+                Quick Summary
+              </Text>
+              <View className="flex-row gap-3">
+                <MetricCard
+                  title="Today"
+                  value={new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit' })}
+                  icon="calendar-outline"
+                  bgColor="bg-blue-100"
+                  iconColor="#3B82F6"
+                />
+                <MetricCard
+                  title="Pending"
+                  value={tasks.length}
+                  icon="checkbox-outline"
+                  bgColor="bg-indigo-100"
+                  iconColor="#6366F1"
+                />
+                <MetricCard
+                  title="Upcoming"
+                  value={upcomingTasks.length}
+                  icon="time-outline"
+                  bgColor="bg-orange-100"
+                  iconColor="#F97316"
+                />
+              </View>
             </View>
           )}
 
-          {/* ── Pending Tasks ── */}
+          {/* ── Pending Tasks ────────────────────────────────────────────── */}
           <View className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-4">
             <SectionHeader title="Pending Tasks" />
             {tasks.length === 0 ? (
@@ -442,7 +448,7 @@ export default function Dashboard() {
             )}
           </View>
 
-          {/* ── Upcoming Tasks ── */}
+          {/* ── Upcoming Tasks ───────────────────────────────────────────── */}
           <View className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-4">
             <SectionHeader title="Upcoming Tasks" />
             {upcomingTasks.length === 0 ? (
@@ -458,7 +464,7 @@ export default function Dashboard() {
             )}
           </View>
 
-          {/* ── Recent Activities ── */}
+          {/* ── Recent Activities ────────────────────────────────────────── */}
           <View className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
             <SectionHeader title="Recent Activities" />
             {activities.length === 0 ? (
@@ -468,7 +474,7 @@ export default function Dashboard() {
                 subtitle="Activities will appear here as they happen"
               />
             ) : (
-              activities.slice(0, 5).map((a, i) => (
+              activities.slice(0, 8).map((a, i) => (
                 <ActivityItem key={a.id ?? i} activity={a} />
               ))
             )}
