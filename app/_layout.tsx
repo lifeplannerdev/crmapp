@@ -39,6 +39,9 @@ export default function RootLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="login" />
       <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="staff/index" />
+      <Stack.Screen name="staff/add" />
+      <Stack.Screen name="staff/edit/[id]" />
     </Stack>
   );
 }
